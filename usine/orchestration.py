@@ -43,6 +43,27 @@ ROLE_FABRICANT = (
 )
 ROLE_FOURNISSEUR = "Tu livres un lot de pièces (quantité aléatoire) pour la pièce demandée."
 
+# Catalogue des outils/délégations (descriptions + arguments) — utilisé par le cerveau LLM.
+CATALOGUE = {
+    # Chef d'usine
+    "lire_commande": "lit le texte de commande → liste de machines. args: {commande: str}",
+    "suivi_commande": "met à jour/lit l'avancement. args: {machine_id: str, statut: str}",
+    "livrer_commande": "clôt la commande. args: {machines: [ids]}",
+    "appeler_assembleur": "lance l'Assembleur pour une machine. args: {machine_id: str, vehicule: str}",
+    "appeler_fabricant": "lance le Fabricant. args: {machine_id: str, manquants: {piece: nb}}",
+    # Assembleur
+    "lire_recette": "nomenclature d'un véhicule. args: {vehicule: str}",
+    "interroger_stock": "renvoie le stock courant. args: {}",
+    "assembler_vehicule": "assemble (consomme le stock). args: {vehicule: str}",
+    "livrer_vehicule": "livre le véhicule. args: {vehicule: str}",
+    # Fabricant
+    "rechercher_fournisseur": "trouve un fournisseur. args: {piece: str}",
+    "ajouter_au_stock": "verse des pièces au stock. args: {piece: str, quantite: int}",
+    "appeler_fournisseur": "commande un lot au Fournisseur. args: {piece: str}",
+    # Fournisseur
+    "fournir_pieces": "livre 0 à 5 pièces (parfois en rupture). args: {piece: str}",
+}
+
 
 async def lancer_commande(commande_texte: str, config, trace: Trace | None = None) -> dict:
     """Lance la production pour une commande texte et renvoie résultat + trace + état final."""
@@ -70,7 +91,7 @@ async def lancer_commande(commande_texte: str, config, trace: Trace | None = Non
             "Fournisseur", ROLE_FOURNISSEUR,
             clients_par_outil={"fournir_pieces": cli["fournisseur"]},
             delegations={},
-            cerveau=cerveau, trace=trace, etat=etat,
+            cerveau=cerveau, trace=trace, etat=etat, catalogue=CATALOGUE,
         )
 
         # --- Fabricant (appelle le Fournisseur) ------------------------------
@@ -84,7 +105,7 @@ async def lancer_commande(commande_texte: str, config, trace: Trace | None = Non
                 "ajouter_au_stock": cli["fabrication"],
             },
             delegations={"appeler_fournisseur": appeler_fournisseur},
-            cerveau=cerveau, trace=trace, etat=etat,
+            cerveau=cerveau, trace=trace, etat=etat, catalogue=CATALOGUE,
         )
 
         # --- Assembleur ------------------------------------------------------
@@ -97,7 +118,7 @@ async def lancer_commande(commande_texte: str, config, trace: Trace | None = Non
                 "livrer_vehicule": cli["atelier"],
             },
             delegations={},
-            cerveau=cerveau, trace=trace, etat=etat,
+            cerveau=cerveau, trace=trace, etat=etat, catalogue=CATALOGUE,
         )
 
         # --- Chef d'usine (orchestrateur) ------------------------------------
@@ -120,7 +141,7 @@ async def lancer_commande(commande_texte: str, config, trace: Trace | None = Non
                 "appeler_assembleur": appeler_assembleur,
                 "appeler_fabricant": appeler_fabricant,
             },
-            cerveau=cerveau, trace=trace, etat=etat,
+            cerveau=cerveau, trace=trace, etat=etat, catalogue=CATALOGUE,
         )
 
         resultat = await chef.executer({"commande": commande_texte}, profondeur=0)

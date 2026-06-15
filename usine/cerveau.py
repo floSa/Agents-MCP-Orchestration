@@ -188,29 +188,47 @@ class CerveauFake:
 # Cerveau Ollama (Gemma E4B) — expérimental
 # ======================================================================================
 class CerveauOllama:
-    """Demande au modèle local de choisir l'action, au format JSON.
+    """Demande au modèle local (Gemma E4B) de choisir l'action, au format JSON.
 
-    Remarque : avec un petit modèle, la fiabilité dépend du prompt. Le mode `fake` reste
-    la référence ; ce cerveau est un point de départ pour brancher un vrai LLM.
+    Fiabilisation pour petit modèle :
+    - on liste explicitement les actions possibles avec leurs **arguments attendus** (catalogue) ;
+    - on impose un format JSON strict + un exemple ;
+    - température 0 (déterministe) et `format=json` côté Ollama ;
+    - extraction JSON robuste (tolère du texte autour) et **une relance** en cas d'échec.
+
+    Le mode `fake` reste la référence ; ce cerveau est le point d'entrée d'un vrai LLM.
     """
+
+    EXEMPLE = (
+        '{"action": "outil", "nom": "interroger_stock", "args": {}}\n'
+        'Autre exemple : {"action": "deleguer", "nom": "appeler_fournisseur", '
+        '"args": {"piece": "roue"}}\n'
+        'Pour finir : {"action": "terminer", "resultat": {"statut": "livré"}}'
+    )
 
     def __init__(self, config):
         import httpx  # importé ici pour ne pas l'exiger en mode fake
         self.config = config
-        self._httpx = httpx
         self.client = httpx.AsyncClient(timeout=120.0)
 
+    def _catalogue_texte(self, agent) -> str:
+        """Liste les actions disponibles de l'agent, avec leur description/arguments."""
+        lignes = []
+        for nom in agent.noms_outils():
+            lignes.append(f'- action "outil", nom "{nom}" : {agent.catalogue.get(nom, "")}')
+        for nom in agent.noms_delegations():
+            lignes.append(f'- action "deleguer", nom "{nom}" : {agent.catalogue.get(nom, "")}')
+        lignes.append('- action "terminer" : quand la tâche est finie ; mettre le bilan dans "resultat".')
+        return "\n".join(lignes)
+
     async def decider(self, agent, objectif, historique, etat) -> Action:
-        outils = agent.noms_outils()
-        delegations = agent.noms_delegations()
         systeme = (
-            f"Tu es l'agent « {agent.nom} ». {agent.role}\n"
-            f"Outils MCP disponibles : {outils}\n"
-            f"Sous-agents que tu peux appeler : {delegations}\n"
-            "Choisis UNE action et réponds STRICTEMENT par un objet JSON :\n"
-            '  {"action": "outil"|"deleguer"|"terminer", "nom": "...", '
-            '"args": {...}, "resultat": ...}\n'
-            "N'invente pas d'outil hors de la liste."
+            f"Tu es l'agent « {agent.nom} ». {agent.role}\n\n"
+            "Actions possibles (n'en invente aucune autre) :\n"
+            f"{self._catalogue_texte(agent)}\n\n"
+            "Réponds STRICTEMENT par UN objet JSON, sans texte autour, de la forme :\n"
+            '{"action": "outil"|"deleguer"|"terminer", "nom": "...", "args": {...}, "resultat": ...}\n'
+            f"Exemples :\n{self.EXEMPLE}"
         )
         contexte = {
             "objectif": objectif,
@@ -218,27 +236,61 @@ class CerveauOllama:
             "stock": etat.interroger_stock(),
             "suivi": etat.suivi,
         }
+        messages = [
+            {"role": "system", "content": systeme},
+            {"role": "user", "content": json.dumps(contexte, ensure_ascii=False)},
+        ]
+
+        # Une tentative + une relance si le JSON est inexploitable.
+        derniere_erreur = None
+        for _ in range(2):
+            contenu = await self._appeler(messages)
+            donnees = _extraire_json(contenu)
+            if donnees is not None:
+                return _vers_action(donnees)
+            derniere_erreur = contenu
+            messages.append({"role": "user", "content": "Réponse invalide. Renvoie UNIQUEMENT le JSON demandé."})
+        raise ValueError(f"Réponse du modèle inexploitable : {derniere_erreur!r}")
+
+    async def _appeler(self, messages) -> str:
         reponse = await self.client.post(
             f"{self.config.ollama_url}/api/chat",
             json={
                 "model": self.config.ollama_model,
-                "messages": [
-                    {"role": "system", "content": systeme},
-                    {"role": "user", "content": json.dumps(contexte, ensure_ascii=False)},
-                ],
+                "messages": messages,
                 "stream": False,
-                "format": "json",  # demande à Ollama de renvoyer du JSON
+                "format": "json",
+                "options": {"temperature": 0},
             },
         )
-        contenu = reponse.json()["message"]["content"]
-        donnees = json.loads(contenu)
+        reponse.raise_for_status()
+        return reponse.json()["message"]["content"]
 
-        action = donnees.get("action")
-        if action == "terminer":
-            return Action("terminer", resultat=donnees.get("resultat"))
-        if action == "deleguer":
-            return Action("deleguer", donnees.get("nom", ""), donnees.get("args", {}) or {})
-        return Action("outil", donnees.get("nom", ""), donnees.get("args", {}) or {})
+
+def _extraire_json(texte: str):
+    """Décode un objet JSON, en tolérant d'éventuels caractères autour."""
+    if not texte:
+        return None
+    try:
+        return json.loads(texte)
+    except (ValueError, TypeError):
+        pass
+    debut, fin = texte.find("{"), texte.rfind("}")
+    if 0 <= debut < fin:
+        try:
+            return json.loads(texte[debut:fin + 1])
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _vers_action(donnees: dict) -> Action:
+    action = donnees.get("action")
+    if action == "terminer":
+        return Action("terminer", resultat=donnees.get("resultat"))
+    if action == "deleguer":
+        return Action("deleguer", donnees.get("nom", ""), donnees.get("args", {}) or {})
+    return Action("outil", donnees.get("nom", ""), donnees.get("args", {}) or {})
 
 
 def construire_cerveau(config):

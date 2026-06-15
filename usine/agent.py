@@ -17,7 +17,7 @@ MAX_ITERATIONS = 100
 
 
 class Agent:
-    def __init__(self, nom, role, clients_par_outil, delegations, cerveau, trace, etat):
+    def __init__(self, nom, role, clients_par_outil, delegations, cerveau, trace, etat, catalogue=None):
         self.nom = nom
         self.role = role
         self.clients_par_outil = clients_par_outil   # {nom_outil: Client FastMCP}
@@ -25,6 +25,9 @@ class Agent:
         self.cerveau = cerveau
         self.trace = trace
         self.etat = etat
+        # Catalogue : {nom_outil: "description (args: ...)"} — sert au cerveau LLM pour
+        # comprendre quels arguments passer. Ignoré par le cerveau déterministe.
+        self.catalogue: dict[str, str] = catalogue or {}
         self.memoire: dict = {}                      # mémoire persistante (utilisée par le Chef)
 
     # Outils visibles par le cerveau (utile pour le mode Ollama).
