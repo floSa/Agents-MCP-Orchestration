@@ -1,0 +1,25 @@
+[project]
+name = "mcp-orchestration"
+version = "0.1.0"
+description = "Tutoriel d'orchestration multi-agents + MCP : une usine qui fabrique des machines."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0.0",      # serveurs MCP (et client en mémoire)
+    "streamlit>=1.36",     # interface de suivi
+    "httpx>=0.27",         # appels HTTP vers Ollama
+    "python-dotenv>=1.0",  # lecture du .env
+]
+
+[dependency-groups]
+# Dépendances de confort pour le développement (facultatif)
+dev = [
+    "ruff>=0.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["usine"]

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# uv
+.uv/
+
+# Env / secrets
+.env
+
+# Données volumineuses (CSV brut, artefacts Windows)
+Data/*.csv
+Data/*.csv:Zone.Identifier
+*:Zone.Identifier
+
+# Traces de runs
+*.jsonl
+traces/
+
+# Divers
+.DS_Store
+.streamlit/secrets.toml
