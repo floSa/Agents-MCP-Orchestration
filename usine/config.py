@@ -45,6 +45,9 @@ class Config:
         default_factory=lambda: _parser_stock(os.getenv("STOCK_INITIAL", "roue:3,batterie:2,chassis:1"))
     )
     seed: int | None = field(default_factory=lambda: _parser_seed(os.getenv("SEED", "")))
+    # Probabilité qu'une commande au fournisseur tombe « en rupture » (renvoie 0 pièce).
+    # C'est ce qui crée la branche d'erreur que le Fabricant doit gérer en relançant.
+    taux_rupture: float = field(default_factory=lambda: _parser_float(os.getenv("TAUX_RUPTURE", "0.25")))
 
 
 def _parser_stock(texte: str) -> dict[str, int]:
@@ -65,6 +68,13 @@ def _parser_stock(texte: str) -> dict[str, int]:
 def _parser_seed(texte: str) -> int | None:
     texte = (texte or "").strip()
     return int(texte) if texte.isdigit() else None
+
+
+def _parser_float(texte: str) -> float:
+    try:
+        return float((texte or "").strip())
+    except ValueError:
+        return 0.0
 
 
 def analyser_commande(texte: str) -> list[dict]:
