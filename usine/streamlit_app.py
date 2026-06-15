@@ -75,19 +75,23 @@ if st.button("🚀 Lancer la production", type="primary"):
     machines_livrees = sum(1 for s in sortie["etat"]["suivi"].values() if s == "livrée")
     colonnes[2].metric("Machines livrées", machines_livrees)
 
-    # Le déroulé, indenté par profondeur dans l'arbre d'agents.
+    # Le déroulé, indenté par profondeur. On construit UN seul bloc markdown
+    # (bien plus rapide que des centaines d'appels st.markdown séparés).
     st.subheader("Déroulé (arbre d'agents)")
+    lignes = []
     for evenement in journal:
         marge = "&nbsp;" * (evenement["profondeur"] * 6)
         badge = COULEUR_AGENT.get(evenement["agent"], "⬜")
         libelle = LIBELLE_TYPE.get(evenement["type"], evenement["type"])
         nom = f" `{evenement['nom']}`" if evenement["nom"] else ""
         detail = evenement["detail"]
-        texte_detail = "" if detail is None else f" — {detail}"
-        st.markdown(
-            f"{marge}{badge} **{evenement['agent']}** · {libelle}{nom}{texte_detail}",
-            unsafe_allow_html=True,
-        )
+        # Met en évidence les ruptures de stock du fournisseur.
+        if isinstance(detail, dict) and isinstance(detail.get("resultat"), dict) \
+                and detail["resultat"].get("statut") == "rupture":
+            badge = "⚠️"
+        texte_detail = "" if detail is None else f" — {str(detail)[:160]}"
+        lignes.append(f"{marge}{badge} **{evenement['agent']}** · {libelle}{nom}{texte_detail}")
+    st.markdown("<br>".join(lignes), unsafe_allow_html=True)
 
     # Détails bruts repliés.
     with st.expander("Voir le journal brut (JSON)"):

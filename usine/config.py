@@ -10,11 +10,12 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Charge les variables depuis un éventuel fichier .env à la racine du projet.
-load_dotenv()
+# Charge le .env à la racine du projet, quel que soit le répertoire courant de lancement.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # --------------------------------------------------------------------------------------
 # Recettes : pour chaque type de machine, le nombre de pièces nécessaires.
