@@ -322,6 +322,78 @@ class CerveauOllama:
             f"{_EXEMPLES[cle]}"
         )
 
+    # --- situation digérée, taillée pour l'agent courant ---------------------
+    def _contexte_digere(self, agent, objectif, historique, etat) -> dict:
+        cle = self._cle_agent(agent)
+        if cle == "chef":
+            return self._ctx_chef(objectif, historique, etat)
+        if cle == "assembleur":
+            return self._ctx_assembleur(objectif, historique)
+        if cle == "fabricant":
+            return self._ctx_fabricant(objectif, historique)
+        return self._ctx_fournisseur(objectif, historique)
+
+    def _ctx_chef(self, objectif, historique, etat) -> dict:
+        plan = _resultat(historique, "lire_commande") or []
+        machines = [
+            {"id": m["id"], "vehicule": m["vehicule"], "statut": etat.suivi.get(m["id"], "à faire")}
+            for m in plan
+        ]
+        courante = next((m for m in plan if etat.suivi.get(m["id"]) != "livrée"), None)
+        dernier_retour, fabricant_appele = None, False
+        if courante:
+            assemblages = _filtrer(historique, "appeler_assembleur", machine_id=courante["id"])
+            fabricant_appele = bool(_filtrer(historique, "appeler_fabricant", machine_id=courante["id"]))
+            if assemblages:
+                dernier_retour = assemblages[-1]["resultat"]
+        return {
+            "commande": objectif.get("commande"),
+            "machines": machines,
+            "machine_courante": courante["id"] if courante else None,
+            "dernier_retour_assembleur": dernier_retour,
+            "fabricant_deja_appele_pour_courante": fabricant_appele,
+            "lire_commande_fait": _fait(historique, "lire_commande"),
+        }
+
+    def _ctx_assembleur(self, objectif, historique) -> dict:
+        vehicule = objectif["vehicule"]
+        recette = _resultat(historique, "lire_recette")
+        stock = _resultat(historique, "interroger_stock")
+        manque = None
+        if recette and stock is not None:
+            manque = {
+                piece: besoin - stock.get(piece, 0)
+                for piece, besoin in recette.items()
+                if besoin > stock.get(piece, 0)
+            }
+        return {
+            "vehicule": vehicule,
+            "recette": recette,
+            "stock": stock,
+            "manque": manque,
+            "etapes_faites": [h["nom"] for h in historique],
+        }
+
+    def _ctx_fabricant(self, objectif, historique) -> dict:
+        manquants = objectif["manquants"]
+        progression = {}
+        for piece, besoin in manquants.items():
+            livraisons = _filtrer(historique, "appeler_fournisseur", piece=piece)
+            progression[piece] = {
+                "besoin": besoin,
+                "recherche": bool(_filtrer(historique, "rechercher_fournisseur", piece=piece)),
+                "cumule_recu": sum((h["resultat"] or {}).get("quantite", 0) for h in livraisons),
+                "verse_au_stock": bool(_filtrer(historique, "ajouter_au_stock", piece=piece)),
+            }
+        courante = next((p for p in manquants if not progression[p]["verse_au_stock"]), None)
+        return {"manquants": manquants, "progression": progression, "piece_courante": courante}
+
+    def _ctx_fournisseur(self, objectif, historique) -> dict:
+        return {
+            "piece": objectif["piece"],
+            "fournir_pieces_fait": _fait(historique, "fournir_pieces"),
+        }
+
     async def decider(self, agent, objectif, historique, etat) -> Action:
         systeme = (
             f"Tu es l'agent « {agent.nom} ». {agent.role}\n\n"
