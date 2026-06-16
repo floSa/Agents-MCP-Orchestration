@@ -90,7 +90,13 @@ Points cles :
 
 - stock : `{roue: n, batterie: n, chassis: n}` — alimente par le Fabricant, consomme par
   l'Assembleur.
-- suivi_commande : pour chaque machine, son etat (a_faire -> manque_pieces -> reappro_ok -> livree).
+- suivi_commande : `{machine_id: statut}`. Dans la version actuelle, le Chef n'y inscrit qu'un
+  seul statut, `"livrée"`, posé quand l'Assembleur a livré la machine ; une machine sans entree
+  est donc consideree « pas encore livree ». C'est volontairement minimal.
+
+  > Exercice : enrichir ce suivi avec un vrai cycle de vie
+  > (`a_faire -> manque_pieces -> reappro_ok -> livree`) rendrait l'interface Streamlit plus
+  > parlante. C'est un bon premier ajout pour s'approprier le code (penser a mettre les tests a jour).
 
 ---
 
@@ -98,7 +104,8 @@ Points cles :
 
 Pour chaque machine de la commande :
 
-1. Chef : lire_commande, met a jour suivi_commande, puis appeler_assembleur(machine).
+1. Chef : lire_commande pour obtenir le plan, prend la premiere machine pas encore livree,
+   puis appeler_assembleur(machine).
 2. Assembleur : lire_recette -> interroger_stock -> calcule le deficit `D = besoin - stock` :
    - D nul -> assembler_vehicule (consomme le stock) + livrer_vehicule -> remonte "livre".
    - D > 0 -> remonte au Chef la liste `{piece: D}` (il n'appelle pas le Fabricant).
@@ -110,7 +117,8 @@ Pour chaque machine de la commande :
    - ajouter_au_stock(piece, total),
    - remonte "en stock".
 5. Chef -> rappelle l'Assembleur (retour etape 2) -> cette fois il assemble et livre.
-6. Quand toutes les machines sont livrees -> livrer_commande.
+6. Des qu'une machine est livree, le Chef la marque `livrée` dans suivi_commande, puis passe a la
+   suivante. Quand toutes les machines sont livrees -> livrer_commande.
 
 ### Coherences importantes
 
@@ -142,6 +150,9 @@ Pour chaque machine de la commande :
 - Suivi : chaque action (agent, outil, args, resultat, profondeur) est journalisee -> affichee
   dans Streamlit.
 - Docker : ollama + l'app Streamlit via docker compose.
+- Garde-fou : chaque agent est borne a `MAX_ITERATIONS` (`usine/agent.py`) pour eviter toute
+  boucle infinie. Avec la graine `SEED`, tout le mode `fake` est reproductible (c'est ce qui
+  permet de l'asserter dans les tests).
 
 Voir [`schema_architecture.svg`](schema_architecture.svg) pour la version dessinee, et le
 [README](../README.md) pour le lancement.

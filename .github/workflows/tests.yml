@@ -1,0 +1,21 @@
+name: tests
+
+on:
+  push:
+    branches: [main, cerveaux-less]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Synchroniser l'environnement (avec dépendances de dev)
+        run: uv sync --group dev
+
+      - name: Lancer la suite de tests
+        run: uv run pytest
