@@ -187,6 +187,68 @@ class CerveauFake:
 # ======================================================================================
 # Cerveau Ollama (Gemma E4B) — expérimental
 # ======================================================================================
+
+# --- Règles, par agent, injectées dans le prompt système. -----------------------------
+_REGLES = {
+    "chef": (
+        "Déroulé attendu :\n"
+        "1. lire_commande pour obtenir la liste des machines.\n"
+        "2. Pour la machine courante (la première non livrée), délègue à l'Assembleur"
+        " (appeler_assembleur).\n"
+        "3. Si l'Assembleur a renvoyé le statut 'manquants' ET que le Fabricant n'a pas"
+        " encore été appelé pour cette machine, délègue au Fabricant (appeler_fabricant).\n"
+        "4. Si le Fabricant a déjà produit les pièces, relance l'Assembleur"
+        " (appeler_assembleur).\n"
+        "5. Si l'Assembleur a renvoyé le statut 'livré', enregistre la livraison"
+        " (suivi_commande).\n"
+        "6. Quand toutes les machines sont livrées, appelle livrer_commande, puis termine."
+    ),
+    "assembleur": (
+        "Déroulé attendu :\n"
+        "1. lire_recette du véhicule.\n"
+        "2. interroger_stock.\n"
+        "3. Regarde le champ 'manque' de la situation : s'il liste des pièces"
+        " (besoin > stock), termine (l'usine fera produire ces pièces).\n"
+        "4. Si 'manque' vaut {} (rien ne manque), assembler_vehicule puis livrer_vehicule,"
+        " puis termine.\n"
+        "('manque' = null signifie : pas encore calculé, continue les lectures.)"
+    ),
+    "fabricant": (
+        "Déroulé attendu, pièce par pièce (voir 'progression'), pour 'piece_courante' :\n"
+        "1. rechercher_fournisseur si 'recherche' est faux.\n"
+        "2. appeler_fournisseur tant que 'cumule_recu' < 'besoin'.\n"
+        "3. Quand 'cumule_recu' >= 'besoin', ajouter_au_stock pour verser la pièce.\n"
+        "4. Quand toutes les pièces sont versées (piece_courante = null), termine."
+    ),
+    "fournisseur": (
+        "Déroulé attendu : appelle fournir_pieces une seule fois, puis termine."
+    ),
+}
+
+# --- Exemples ciblés (few-shot), par agent. -------------------------------------------
+_EXEMPLES = {
+    "chef": (
+        'Exemples : {"action": "outil", "nom": "lire_commande"} ; '
+        '{"action": "deleguer", "nom": "appeler_assembleur"} ; '
+        '{"action": "deleguer", "nom": "appeler_fabricant"} ; '
+        '{"action": "outil", "nom": "suivi_commande"} ; {"action": "terminer"}'
+    ),
+    "assembleur": (
+        'Exemples : {"action": "outil", "nom": "lire_recette"} ; '
+        '{"action": "outil", "nom": "interroger_stock"} ; '
+        '{"action": "outil", "nom": "assembler_vehicule"} ; {"action": "terminer"}'
+    ),
+    "fabricant": (
+        'Exemples : {"action": "outil", "nom": "rechercher_fournisseur"} ; '
+        '{"action": "deleguer", "nom": "appeler_fournisseur"} ; '
+        '{"action": "outil", "nom": "ajouter_au_stock"} ; {"action": "terminer"}'
+    ),
+    "fournisseur": (
+        'Exemples : {"action": "outil", "nom": "fournir_pieces"} ; {"action": "terminer"}'
+    ),
+}
+
+
 class CerveauOllama:
     """Demande au modèle local (Gemma E4B) de choisir l'action, au format JSON.
 
@@ -220,6 +282,45 @@ class CerveauOllama:
             lignes.append(f'- action "deleguer", nom "{nom}" : {agent.catalogue.get(nom, "")}')
         lignes.append('- action "terminer" : quand la tâche est finie ; mettre le bilan dans "resultat".')
         return "\n".join(lignes)
+
+    # --- prompt système, taillé pour l'agent courant -------------------------
+    def _cle_agent(self, agent) -> str:
+        nom = agent.nom
+        if nom.startswith("Chef"):
+            return "chef"
+        if nom == "Assembleur":
+            return "assembleur"
+        if nom == "Fabricant":
+            return "fabricant"
+        if nom == "Fournisseur":
+            return "fournisseur"
+        return "chef"
+
+    def _actions_agent(self, agent) -> str:
+        """Liste EXACTE des actions de cet agent (et d'elles seules)."""
+        lignes = []
+        for nom in agent.noms_outils():
+            lignes.append(f'- {{"action": "outil", "nom": "{nom}"}} : {agent.catalogue.get(nom, "")}')
+        for nom in agent.noms_delegations():
+            lignes.append(f'- {{"action": "deleguer", "nom": "{nom}"}} : {agent.catalogue.get(nom, "")}')
+        lignes.append('- {"action": "terminer"} : la tâche de cet agent est finie.')
+        return "\n".join(lignes)
+
+    def _prompt_systeme(self, agent) -> str:
+        cle = self._cle_agent(agent)
+        return (
+            f"Tu es l'agent « {agent.nom} ». {agent.role}\n\n"
+            f"{_REGLES[cle]}\n\n"
+            "Actions possibles (n'en choisis AUCUNE autre) :\n"
+            f"{self._actions_agent(agent)}\n\n"
+            "Tu choisis UNE seule action à la fois, selon la situation fournie.\n"
+            'Réponds STRICTEMENT par un objet JSON : {"action": "outil|deleguer|terminer",'
+            ' "nom": "<nom exact>"}.\n'
+            "Les ARGUMENTS sont calculés automatiquement : ne fournis QUE \"action\" et \"nom\".\n"
+            "Ne répète jamais une étape déjà faite. Quand il n'y a plus rien à faire, réponds"
+            ' {"action": "terminer"}.\n'
+            f"{_EXEMPLES[cle]}"
+        )
 
     async def decider(self, agent, objectif, historique, etat) -> Action:
         systeme = (
