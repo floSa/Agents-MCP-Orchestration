@@ -11,13 +11,34 @@ boucle ; il se sert du cerveau pour décider.
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+if TYPE_CHECKING:
+    # Imports « pour les types » uniquement : jamais chargés à l'exécution (pas de dépendance ajoutée).
+    from fastmcp import Client
+
+    from usine.etat import Etat
+    from usine.trace import Trace
+
+# Une délégation est une coroutine `(args, profondeur) -> résultat` qui lance un sous-agent.
+Delegation = Callable[[dict, int], Awaitable[Any]]
 
 # Garde-fou : nombre maximum d'itérations d'un agent (évite toute boucle infinie).
 MAX_ITERATIONS = 100
 
 
 class Agent:
-    def __init__(self, nom, role, clients_par_outil, delegations, cerveau, trace, etat, catalogue=None):
+    def __init__(
+        self,
+        nom: str,
+        role: str,
+        clients_par_outil: dict[str, "Client"],
+        delegations: dict[str, Delegation],
+        cerveau: Any,                       # un objet exposant `await decider(agent, objectif, historique, etat)`
+        trace: "Trace",
+        etat: "Etat",
+        catalogue: dict[str, str] | None = None,
+    ) -> None:
         self.nom = nom
         self.role = role
         self.clients_par_outil = clients_par_outil   # {nom_outil: Client FastMCP}
