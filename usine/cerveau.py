@@ -91,10 +91,13 @@ class CerveauFake:
             return Action("outil", "lire_commande", {"commande": commande})
         plan = _resultat(historique, "lire_commande") or []
 
-        # 2) Trouver la première machine pas encore livrée (le suivi est dans l'état partagé).
-        courante = next((m for m in plan if etat.suivi.get(m["id"]) != "livrée"), None)
+        # Cycle de vie d'une machine dans suivi_commande : "à faire" → "en cours" → "fini".
+        # lire_commande initialise chaque machine à "à faire" ; le Chef fait avancer le reste.
 
-        # 3) Tout est livré → clôturer la commande.
+        # 2) Trouver la première machine pas encore finie.
+        courante = next((m for m in plan if etat.suivi.get(m["id"], "à faire") != "fini"), None)
+
+        # 3) Tout est fini → clôturer la commande.
         if courante is None:
             if not _fait(historique, "livrer_commande"):
                 return Action("outil", "livrer_commande", {"machines": [m["id"] for m in plan]})
@@ -104,20 +107,25 @@ class CerveauFake:
             })
 
         machine_id, vehicule = courante["id"], courante["vehicule"]
+
+        # 4) On commence à s'occuper de cette machine → la passer "en cours".
+        if etat.suivi.get(machine_id, "à faire") == "à faire":
+            return Action("outil", "suivi_commande", {"machine_id": machine_id, "statut": "en cours"})
+
         assemblages = _filtrer(historique, "appeler_assembleur", machine_id=machine_id)
         fabrications = _filtrer(historique, "appeler_fabricant", machine_id=machine_id)
 
-        # 4) Pas encore tenté d'assembler cette machine → déléguer à l'Assembleur.
+        # 5) Pas encore tenté d'assembler cette machine → déléguer à l'Assembleur.
         if not assemblages:
             return Action("deleguer", "appeler_assembleur", {"machine_id": machine_id, "vehicule": vehicule})
 
         dernier = assemblages[-1]["resultat"] or {}
 
-        # 5a) L'Assembleur a livré → marquer la machine comme livrée (suivi).
+        # 6a) L'Assembleur a livré → marquer la machine "fini" (suivi).
         if dernier.get("statut") == "livré":
-            return Action("outil", "suivi_commande", {"machine_id": machine_id, "statut": "livrée"})
+            return Action("outil", "suivi_commande", {"machine_id": machine_id, "statut": "fini"})
 
-        # 5b) Il manque des pièces.
+        # 6b) Il manque des pièces.
         if not fabrications:
             # On n'a pas encore fabriqué → déléguer au Fabricant les pièces manquantes.
             return Action("deleguer", "appeler_fabricant", {

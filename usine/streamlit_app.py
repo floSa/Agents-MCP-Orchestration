@@ -32,6 +32,13 @@ COULEUR_AGENT = {
     "Fournisseur": "#a142f4",   # violet
 }
 
+# Couleur par statut de machine (cycle de vie "à faire" → "en cours" → "fini").
+COULEUR_STATUT = {
+    "à faire": "#9aa0a6",   # gris
+    "en cours": "#fbbc04",  # orange
+    "fini": "#34a853",      # vert
+}
+
 
 def pastille(couleur: str) -> str:
     """Petit carré coloré en HTML (rendu fiable, indépendant des emojis)."""
@@ -85,8 +92,17 @@ if st.button("Lancer la production", type="primary"):
     colonnes = st.columns(3)
     colonnes[0].metric("Événements", len(journal))
     colonnes[1].metric("Stock final", " · ".join(f"{p}:{n}" for p, n in sortie["etat"]["stock"].items()))
-    machines_livrees = sum(1 for s in sortie["etat"]["suivi"].values() if s == "livrée")
-    colonnes[2].metric("Machines livrées", machines_livrees)
+    suivi = sortie["etat"]["suivi"]
+    machines_finies = sum(1 for s in suivi.values() if s == "fini")
+    colonnes[2].metric("Machines finies", f"{machines_finies}/{len(suivi)}")
+
+    # État de chaque machine (cycle de vie "à faire" → "en cours" → "fini").
+    st.subheader("État des machines")
+    lignes_etat = [
+        f'{pastille(COULEUR_STATUT.get(statut, "#9aa0a6"))}`{machine_id}` — {statut}'
+        for machine_id, statut in suivi.items()
+    ]
+    st.markdown("<br>".join(lignes_etat), unsafe_allow_html=True)
 
     # Le déroulé, indenté par profondeur. On construit UN seul bloc markdown
     # (bien plus rapide que des centaines d'appels st.markdown séparés).

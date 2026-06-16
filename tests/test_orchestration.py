@@ -42,10 +42,10 @@ def test_commande_complete_est_livree():
     sortie = _lancer("2 motos + 2 voitures")
     suivi = sortie["etat"]["suivi"]
     assert suivi == {
-        "moto#1": "livrée",
-        "moto#2": "livrée",
-        "voiture#1": "livrée",
-        "voiture#2": "livrée",
+        "moto#1": "fini",
+        "moto#2": "fini",
+        "voiture#1": "fini",
+        "voiture#2": "fini",
     }
     assert sortie["resultat"]["statut"] == "commande_livrée"
     assert sortie["resultat"]["machines"] == ["moto#1", "moto#2", "voiture#1", "voiture#2"]
@@ -81,9 +81,20 @@ def test_la_profondeur_atteint_le_fournisseur():
 
 
 # --- robustesse de l'analyse de commande ----------------------------------------------
+def test_le_suivi_passe_par_en_cours_puis_fini():
+    # Cycle de vie d'une machine, visible dans la trace : "en cours" puis "fini".
+    sortie = _lancer("1 moto")
+    statuts = [
+        e["detail"]["args"]["statut"]
+        for e in sortie["trace"].journal
+        if e["agent"] == "Chef d'usine" and e["type"] == "outil" and e["nom"] == "suivi_commande"
+    ]
+    assert statuts == ["en cours", "fini"]
+
+
 def test_camion_seul_est_produit():
     sortie = _lancer("1 camion")
-    assert sortie["etat"]["suivi"] == {"camion#1": "livrée"}
+    assert sortie["etat"]["suivi"] == {"camion#1": "fini"}
 
 
 def test_stock_suffisant_evite_le_fabricant():
@@ -92,4 +103,4 @@ def test_stock_suffisant_evite_le_fabricant():
     sortie = _lancer("1 moto", config)
     agents = {e["agent"] for e in sortie["trace"].journal}
     assert "Fabricant" not in agents
-    assert sortie["etat"]["suivi"] == {"moto#1": "livrée"}
+    assert sortie["etat"]["suivi"] == {"moto#1": "fini"}

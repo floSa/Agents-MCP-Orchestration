@@ -106,8 +106,9 @@ les outils (MCP) et la politique (cerveau).
 
 ## 6. Pour aller plus loin (exercices)
 
-- Enrichir `suivi_commande` avec un vrai cycle de vie
-  (`a_faire → manque_pieces → reappro_ok → livrée`) et le refléter dans Streamlit.
+- Le suivi a déjà un cycle `à faire → en cours → fini`. Affinez-le : ajoutez un état
+  `manque_pieces` (machine bloquée sur le stock) entre `en cours` et `fini`, et reflétez-le dans
+  Streamlit. C'est un bon exercice « état partagé + UI » (pensez à mettre les tests à jour).
 - Ajouter un type de machine (ex. `vélo`) : une ligne dans `RECETTES`, un test, et c'est tout.
 - Brancher `CerveauOllama` et comparer ses décisions à la référence `CerveauFake`.
 - Ajouter un quatrième niveau de profondeur (un sous-sous-agent) pour voir l'arbre grandir.
