@@ -61,7 +61,7 @@ CATALOGUE = {
     "ajouter_au_stock": "verse des pièces au stock. args: {piece: str, quantite: int}",
     "appeler_fournisseur": "commande un lot au Fournisseur. args: {piece: str}",
     # Fournisseur
-    "fournir_pieces": "livre 0 à 5 pièces (parfois en rupture). args: {piece: str}",
+    "fournir_pieces": "livre 1 à 5 pièces (aléatoire). args: {piece: str}",
 }
 
 

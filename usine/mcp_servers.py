@@ -110,14 +110,11 @@ def construire_fournisseur(etat: Etat, config) -> FastMCP:
 
     @mcp.tool
     def fournir_pieces(piece: str) -> dict:
-        """Livre un lot de pièces.
+        """Livre un lot ALÉATOIRE de 1 à 5 pièces.
 
-        - Avec une probabilité `taux_rupture`, le fournisseur est **en rupture** et renvoie 0 :
-          c'est la *branche d'erreur* — le Fabricant devra relancer.
-        - Sinon il livre un lot ALÉATOIRE de 1 à 5 pièces (d'où la boucle du Fabricant).
+        Comme un lot est souvent inférieur au déficit, le Fabricant recommande plusieurs fois
+        jusqu'à atteindre la quantité voulue : c'est ce qui crée sa boucle.
         """
-        if rng.random() < config.taux_rupture:
-            return {"piece": piece, "quantite": 0, "statut": "rupture"}
-        return {"piece": piece, "quantite": rng.randint(1, 5), "statut": "ok"}
+        return {"piece": piece, "quantite": rng.randint(1, 5)}
 
     return mcp
