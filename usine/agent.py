@@ -39,6 +39,8 @@ class Agent:
 
     async def executer(self, objectif, profondeur: int = 0):
         """Exécute la tâche `objectif` et renvoie le résultat final."""
+        # Profondeur courante : le cerveau LLM s'en sert pour tracer ses appels au bon niveau.
+        self.profondeur = profondeur
         self.trace.log(profondeur, self.nom, "objectif", detail=objectif)
         historique: list[dict] = []
 
