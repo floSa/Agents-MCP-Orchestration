@@ -24,14 +24,13 @@ from usine.config import RECETTES, Config  # noqa: E402
 from usine.orchestration import lancer_commande  # noqa: E402
 
 # Couleur (badge) par agent. On utilise un petit carré HTML coloré plutôt qu'un emoji
-# « carré de couleur » (🟦…), car ces emojis ne sont pas rendus par toutes les polices.
+# "carré de couleur", car ces emojis ne sont pas rendus par toutes les polices.
 COULEUR_AGENT = {
     "Chef d'usine": "#4285f4",  # bleu
     "Assembleur": "#34a853",    # vert
     "Fabricant": "#fbbc04",     # orange
     "Fournisseur": "#a142f4",   # violet
 }
-COULEUR_RUPTURE = "#ea4335"     # rouge
 
 
 def pastille(couleur: str) -> str:
@@ -42,16 +41,16 @@ def pastille(couleur: str) -> str:
     )
 # Libellé lisible par type d'événement.
 LIBELLE_TYPE = {
-    "objectif": "🎯 objectif",
-    "outil": "🔧 outil",
-    "observation": "↳ résultat",
-    "delegation": "→ délègue à",
-    "retour": "← reçoit de",
-    "fin": "✅ termine",
+    "objectif": "objectif",
+    "outil": "outil",
+    "observation": "résultat",
+    "delegation": "délègue à",
+    "retour": "reçoit de",
+    "fin": "termine",
 }
 
-st.set_page_config(page_title="Usine d'agents — suivi", page_icon="🏭", layout="wide")
-st.title("🏭 Usine d'agents — suivi de production")
+st.set_page_config(page_title="Usine d'agents — suivi", layout="wide")
+st.title("Usine d'agents — suivi de production")
 st.caption("Tutoriel d'orchestration multi-agents + MCP. Voir docs/architecture.md.")
 
 config = Config()
@@ -72,12 +71,11 @@ with st.sidebar:
     st.header("Légende")
     for agent, couleur in COULEUR_AGENT.items():
         st.markdown(f"{pastille(couleur)} {agent}", unsafe_allow_html=True)
-    st.markdown(f"{pastille(COULEUR_RUPTURE)} rupture (fournisseur)", unsafe_allow_html=True)
 
 # --- Zone principale : commande + lancement ------------------------------------------
 commande = st.text_input("Commande à produire", value="2 motos + 2 voitures")
 
-if st.button("🚀 Lancer la production", type="primary"):
+if st.button("Lancer la production", type="primary"):
     with st.spinner("Production en cours…"):
         sortie = asyncio.run(lancer_commande(commande, config))
 
@@ -100,15 +98,9 @@ if st.button("🚀 Lancer la production", type="primary"):
         libelle = LIBELLE_TYPE.get(evenement["type"], evenement["type"])
         nom = f" `{evenement['nom']}`" if evenement["nom"] else ""
         detail = evenement["detail"]
-        # Met en évidence les ruptures de stock du fournisseur (carré rouge).
-        alerte = ""
-        if isinstance(detail, dict) and isinstance(detail.get("resultat"), dict) \
-                and detail["resultat"].get("statut") == "rupture":
-            couleur = COULEUR_RUPTURE
-            alerte = "⚠️ "
         texte_detail = "" if detail is None else f" — {str(detail)[:160]}"
         lignes.append(
-            f"{marge}{pastille(couleur)}{alerte}**{evenement['agent']}** · {libelle}{nom}{texte_detail}"
+            f"{marge}{pastille(couleur)}**{evenement['agent']}** · {libelle}{nom}{texte_detail}"
         )
     st.markdown("<br>".join(lignes), unsafe_allow_html=True)
 

@@ -19,20 +19,12 @@ try:
 except (AttributeError, ValueError):
     pass
 
-# Symboles selon le type d'événement (lisibilité du journal).
-SYMBOLES = {
-    "objectif": "▶", "outil": "·", "observation": "  ↳",
-    "delegation": "→", "retour": "  ←", "fin": "■",
-}
-
-
 def afficher_journal(journal: list[dict]) -> None:
     for evenement in journal:
         marge = "    " * evenement["profondeur"]
-        symbole = SYMBOLES.get(evenement["type"], " ")
         detail = evenement["detail"]
         texte_detail = "" if detail is None else f" {detail}"
-        print(f'{evenement["ordre"]:>3} {marge}{symbole} [{evenement["agent"]}] '
+        print(f'{evenement["ordre"]:>3} {marge}[{evenement["agent"]}] '
               f'{evenement["type"]} {evenement["nom"]}{texte_detail}')
 
 
