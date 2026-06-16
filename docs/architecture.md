@@ -90,13 +90,16 @@ Points cles :
 
 - stock : `{roue: n, batterie: n, chassis: n}` — alimente par le Fabricant, consomme par
   l'Assembleur.
-- suivi_commande : `{machine_id: statut}`. Dans la version actuelle, le Chef n'y inscrit qu'un
-  seul statut, `"livrée"`, posé quand l'Assembleur a livré la machine ; une machine sans entree
-  est donc consideree « pas encore livree ». C'est volontairement minimal.
+- suivi_commande : `{machine_id: statut}`, avec un cycle de vie simple en trois etats :
 
-  > Exercice : enrichir ce suivi avec un vrai cycle de vie
-  > (`a_faire -> manque_pieces -> reappro_ok -> livree`) rendrait l'interface Streamlit plus
-  > parlante. C'est un bon premier ajout pour s'approprier le code (penser a mettre les tests a jour).
+  ```
+  à faire  ->  en cours  ->  fini
+  ```
+
+  `lire_commande` initialise chaque machine a `à faire` ; le Chef la passe `en cours` quand il
+  commence a s'en occuper, puis `fini` une fois livree. Le suivi donne donc l'avancement « gros
+  grain » (visible d'un coup d'oeil dans Streamlit), tandis que le detail — manque de pieces,
+  reapprovisionnement — reste lisible dans la trace.
 
 ---
 
@@ -104,8 +107,8 @@ Points cles :
 
 Pour chaque machine de la commande :
 
-1. Chef : lire_commande pour obtenir le plan, prend la premiere machine pas encore livree,
-   puis appeler_assembleur(machine).
+1. Chef : lire_commande pour obtenir le plan, prend la premiere machine pas encore `fini`,
+   la passe `en cours`, puis appeler_assembleur(machine).
 2. Assembleur : lire_recette -> interroger_stock -> calcule le deficit `D = besoin - stock` :
    - D nul -> assembler_vehicule (consomme le stock) + livrer_vehicule -> remonte "livre".
    - D > 0 -> remonte au Chef la liste `{piece: D}` (il n'appelle pas le Fabricant).
@@ -117,8 +120,8 @@ Pour chaque machine de la commande :
    - ajouter_au_stock(piece, total),
    - remonte "en stock".
 5. Chef -> rappelle l'Assembleur (retour etape 2) -> cette fois il assemble et livre.
-6. Des qu'une machine est livree, le Chef la marque `livrée` dans suivi_commande, puis passe a la
-   suivante. Quand toutes les machines sont livrees -> livrer_commande.
+6. Des qu'une machine est livree, le Chef la marque `fini` dans suivi_commande, puis passe a la
+   suivante. Quand toutes les machines sont `fini` -> livrer_commande.
 
 ### Coherences importantes
 

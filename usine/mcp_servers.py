@@ -36,8 +36,15 @@ def construire_pilotage(etat: Etat) -> FastMCP:
 
     @mcp.tool
     def lire_commande(commande: str) -> list[dict]:
-        """Analyse le texte de commande et renvoie la liste des machines à produire."""
-        return analyser_commande(commande)
+        """Analyse le texte de commande et renvoie la liste des machines à produire.
+
+        Effet de bord : initialise le suivi de chaque machine à "à faire" (point de départ
+        du cycle de vie "à faire" → "en cours" → "fini" géré ensuite par le Chef).
+        """
+        plan = analyser_commande(commande)
+        for machine in plan:
+            etat.suivi.setdefault(machine["id"], "à faire")
+        return plan
 
     @mcp.tool
     def suivi_commande(machine_id: str = "", statut: str = "") -> dict:

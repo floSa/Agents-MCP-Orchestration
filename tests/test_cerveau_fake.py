@@ -154,38 +154,50 @@ def test_chef_commence_par_lire_la_commande():
     assert action.nom == "lire_commande"
 
 
-def test_chef_delegue_assemblage_de_la_premiere_machine():
+def test_chef_passe_la_machine_a_en_cours():
+    # Cycle de vie : une machine "à faire" (défaut) passe d'abord "en cours".
     historique = [_evt("lire_commande", PLAN, commande="2 motos")]
     action = CERVEAU._chef({"commande": "2 motos"}, historique, Etat())
+    assert action.nom == "suivi_commande"
+    assert action.args == {"machine_id": "moto#1", "statut": "en cours"}
+
+
+def test_chef_delegue_assemblage_quand_la_machine_est_en_cours():
+    etat = Etat(suivi={"moto#1": "en cours"})
+    historique = [_evt("lire_commande", PLAN, commande="2 motos")]
+    action = CERVEAU._chef({"commande": "2 motos"}, historique, etat)
     assert action.type == "deleguer" and action.nom == "appeler_assembleur"
     assert action.args["machine_id"] == "moto#1"
 
 
-def test_chef_marque_livree_quand_lassembleur_a_livre():
+def test_chef_marque_fini_quand_lassembleur_a_livre():
+    etat = Etat(suivi={"moto#1": "en cours"})
     historique = [
         _evt("lire_commande", PLAN, commande="2 motos"),
         {"type": "deleguer", "nom": "appeler_assembleur",
          "args": {"machine_id": "moto#1", "vehicule": "moto"},
          "resultat": {"statut": "livré", "vehicule": "moto"}},
     ]
-    action = CERVEAU._chef({"commande": "2 motos"}, historique, Etat())
+    action = CERVEAU._chef({"commande": "2 motos"}, historique, etat)
     assert action.nom == "suivi_commande"
-    assert action.args == {"machine_id": "moto#1", "statut": "livrée"}
+    assert action.args == {"machine_id": "moto#1", "statut": "fini"}
 
 
 def test_chef_appelle_le_fabricant_si_pieces_manquantes():
+    etat = Etat(suivi={"moto#1": "en cours"})
     historique = [
         _evt("lire_commande", PLAN, commande="2 motos"),
         {"type": "deleguer", "nom": "appeler_assembleur",
          "args": {"machine_id": "moto#1", "vehicule": "moto"},
          "resultat": {"statut": "manquants", "manquants": {"roue": 2}}},
     ]
-    action = CERVEAU._chef({"commande": "2 motos"}, historique, Etat())
+    action = CERVEAU._chef({"commande": "2 motos"}, historique, etat)
     assert action.type == "deleguer" and action.nom == "appeler_fabricant"
     assert action.args["manquants"] == {"roue": 2}
 
 
 def test_chef_relance_lassembleur_apres_fabrication():
+    etat = Etat(suivi={"moto#1": "en cours"})
     historique = [
         _evt("lire_commande", PLAN, commande="2 motos"),
         {"type": "deleguer", "nom": "appeler_assembleur",
@@ -195,15 +207,15 @@ def test_chef_relance_lassembleur_apres_fabrication():
          "args": {"machine_id": "moto#1", "manquants": {"roue": 2}},
          "resultat": {"statut": "en_stock"}},
     ]
-    action = CERVEAU._chef({"commande": "2 motos"}, historique, Etat())
+    action = CERVEAU._chef({"commande": "2 motos"}, historique, etat)
     assert action.type == "deleguer" and action.nom == "appeler_assembleur"
     assert action.args["machine_id"] == "moto#1"
 
 
-def test_chef_cloture_quand_tout_est_livre():
-    etat = Etat(suivi={"moto#1": "livrée", "moto#2": "livrée"})
+def test_chef_cloture_quand_tout_est_fini():
+    etat = Etat(suivi={"moto#1": "fini", "moto#2": "fini"})
     historique = [_evt("lire_commande", PLAN, commande="2 motos")]
-    # Toutes livrées → livrer_commande.
+    # Toutes finies → livrer_commande.
     a1 = CERVEAU._chef({"commande": "2 motos"}, historique, etat)
     assert a1.nom == "livrer_commande"
     assert a1.args["machines"] == ["moto#1", "moto#2"]
