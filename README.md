@@ -6,7 +6,30 @@ orchestrateur, sous-agents, boucles, reutilisation d'agents, profondeur (un agen
 agent), etat partage, et outils exposes via MCP (FastMCP).
 
 A lire d'abord : [`docs/architecture.md`](docs/architecture.md) (avec le schema). C'est la
-specification complete.
+specification complete. Pour réutiliser ce squelette sur un autre sujet, voir
+[`docs/adapter-a-votre-projet.md`](docs/adapter-a-votre-projet.md).
+
+---
+
+## Parcours d'apprentissage (ordre conseillé)
+
+1. **Survol** — ce README, puis [`docs/architecture.md`](docs/architecture.md) et son schéma.
+2. **Voir tourner** — `uv run python -m usine.main "2 motos + 2 voitures"` : lire le journal
+   indenté par profondeur (qui appelle qui).
+3. **Le moteur** — [`usine/agent.py`](usine/agent.py) (la boucle ReAct) et
+   [`usine/trace.py`](usine/trace.py). Générique, valable pour tout projet.
+4. **La logique métier** — [`usine/cerveau.py`](usine/cerveau.py), classe `CerveauFake` :
+   une politique déterministe par agent. C'est le cœur pédagogique.
+5. **Les outils et l'état** — [`usine/mcp_servers.py`](usine/mcp_servers.py) et
+   [`usine/etat.py`](usine/etat.py).
+6. **Le câblage** — [`usine/orchestration.py`](usine/orchestration.py) : comment l'arbre d'agents
+   est assemblé.
+7. **Les tests comme doc** — [`tests/test_cerveau_fake.py`](tests/test_cerveau_fake.py) décrit, pas
+   à pas, le comportement de chaque agent.
+8. **Adapter à votre projet** — [`docs/adapter-a-votre-projet.md`](docs/adapter-a-votre-projet.md).
+
+Chaque module Python porte en tête un repère : `MOTEUR GÉNÉRIQUE` (réutilisable tel quel) vs
+`EXEMPLE MÉTIER` (à réécrire pour votre domaine).
 
 ---
 
@@ -31,7 +54,8 @@ journalisee et affichee dans une interface Streamlit pour se balader dans l'arbr
 MCP-Orchestration/
 ├── README.md
 ├── docs/
-│   ├── architecture.md        <- LA spec (agents, MCP, outils, flux, regles)
+│   ├── architecture.md            <- LA spec (agents, MCP, outils, flux, regles)
+│   ├── adapter-a-votre-projet.md  <- guide : reutiliser ce squelette ailleurs
 │   └── schema_architecture.svg
 ├── usine/                     <- le package Python
 │   ├── config.py              <- recettes + configuration LLM
@@ -43,10 +67,13 @@ MCP-Orchestration/
 │   ├── orchestration.py       <- assemble les agents et lance une commande
 │   ├── main.py                <- lancement en ligne de commande
 │   └── streamlit_app.py       <- interface de suivi
+├── tests/                     <- suite pytest (un fichier par module)
 ├── pyproject.toml             <- dependances (uv)
 ├── Dockerfile
 ├── docker-compose.yml         <- Ollama + l'app Streamlit
-└── .env.example               <- variables de configuration
+├── .env.example               <- variables de configuration
+├── .github/workflows/         <- CI (pytest)
+└── LICENSE                    <- MIT
 ```
 
 ---
@@ -73,6 +100,25 @@ cp .env.example .env          # puis mettre LLM_PROVIDER=ollama
 ollama pull gemma3n:e4b       # recuperer le modele
 uv run python -m usine.main "2 motos + 2 voitures"
 ```
+
+---
+
+## Tests
+
+```bash
+uv sync --group dev   # installe pytest
+uv run pytest
+```
+
+La suite couvre l'analyse de commande, l'état partagé, la trace, la politique de chaque agent
+(`CerveauFake`), le `CerveauOllama` (sans serveur, appel réseau simulé) et un scénario complet
+de bout en bout, reproductible grâce à `SEED`. Les tests valent aussi comme documentation
+exécutable du comportement attendu.
+
+> Note : si le venv est sur un montage réseau Windows (`\\?\UNC\...`, ex. projet WSL ouvert
+> depuis Windows), pytest saute le test de bout en bout car le chargement de la DLL pywin32 y
+> échoue ; il s'exécute normalement ailleurs (CI Linux). Préfixez vos commandes uv par
+> `UV_LINK_MODE=copy` dans ce cas.
 
 ---
 

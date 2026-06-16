@@ -1,5 +1,9 @@
 """Assemble tout : crée les MCP, les clients, les 4 agents, et lance une commande.
 
+> **CÂBLAGE** — le *patron* (assembler agents + MCP + délégations) est générique et se
+> recopie ; les agents, rôles et délégations concrets sont propres à l'usine.
+
+
 C'est ici qu'on câble l'arbre d'agents :
 
     Chef d'usine

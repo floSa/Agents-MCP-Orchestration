@@ -1,5 +1,8 @@
 """Journal d'événements : enregistre TOUT ce que font les agents.
 
+> **MOTEUR GÉNÉRIQUE** — réutilisable tel quel, indépendant du domaine « usine ».
+
+
 Chaque action (objectif, appel d'outil, observation, délégation, retour, fin) est consignée
 avec sa **profondeur** dans l'arbre d'agents. C'est ce journal que l'interface Streamlit affiche
 pour qu'on puisse « se balader » dans le déroulé.

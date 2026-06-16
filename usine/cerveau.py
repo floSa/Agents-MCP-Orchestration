@@ -1,5 +1,9 @@
 """Le « cerveau » des agents : c'est lui qui décide la prochaine action.
 
+> **MIXTE** — l'interface `decider(...)`, `Action`, le pilote `CerveauOllama` et les
+> utilitaires JSON sont **génériques**. En revanche `CerveauFake` encode la **politique
+> métier** de l'usine : c'est LE bloc qu'on réécrit pour un autre domaine.
+
 Deux implémentations interchangeables :
 
 - `CerveauFake` : **déterministe**, applique les règles métier sans aucun LLM.
@@ -58,7 +62,10 @@ def _filtrer(historique: list[dict], nom: str, **args_egaux) -> list[dict]:
 
 
 # ======================================================================================
-# Cerveau déterministe (référence)
+# Cerveau déterministe (référence) — POLITIQUE MÉTIER
+# --------------------------------------------------------------------------------------
+# >>> C'est ICI qu'on décrit, en code pur, ce que fait chaque agent. Pour adapter le
+# >>> projet à un autre domaine, c'est principalement cette classe qu'on réécrit. <<<
 # ======================================================================================
 class CerveauFake:
     """Encode la politique de chaque agent. Aucune dépendance, 100 % reproductible."""

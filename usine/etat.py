@@ -1,5 +1,8 @@
 """État partagé du système : le `stock` et le `suivi_commande`.
 
+> **EXEMPLE MÉTIER** — propre à l'usine ; à remplacer par l'état de VOTRE domaine.
+
+
 C'est la **mémoire commune** :
 - le **stock** est lu par l'Assembleur (`interroger_stock`), consommé par lui (`assembler_vehicule`),
   et alimenté par le Fabricant (`ajouter_au_stock`) ;
