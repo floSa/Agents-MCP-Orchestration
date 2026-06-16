@@ -185,8 +185,36 @@ class CerveauFake:
 
 
 # ======================================================================================
-# Cerveau Ollama (Gemma E4B) — expérimental
+# Cerveau Ollama (Gemma E4B)
 # ======================================================================================
+#
+# Pourquoi un garde-fou déterministe ?
+# ------------------------------------
+# Un petit modèle local (4B) ne tient pas une boucle « ReAct » brute : observé en vrai sur
+# « 1 moto », il répète 40 fois la même lecture, corrompt un nom d'outil
+# (« appeler_fabri fabricant ») ou invente des pièces manquantes. On garde donc le LLM AU
+# VOLANT — c'est lui qui choisit la prochaine action à chaque tour — mais on l'encadre :
+#
+#   1. prompt par agent (rôle + règles + liste EXACTE des actions + exemples ciblés) ;
+#   2. situation DIGÉRÉE (arithmétique pré-calculée : déficit, cumul reçu, machine courante)
+#      plutôt qu'un historique brut illisible — et contexte volontairement court ;
+#   3. le modèle ne choisit QUE l'action et son nom ; les arguments (sommes, dictionnaires,
+#      identifiants) sont fournis par la référence déterministe — un 4B ne les calcule pas ;
+#   4. validation contre `CerveauFake` (la référence) : si le modèle dérape (nom inconnu,
+#      répétition, mauvais aiguillage, arrêt prématuré), on RELANCE avec un indice, puis on
+#      CORRIGE/FORCE l'action de référence — c'est le « corriger/forcer » attendu ;
+#   5. la sortie BRUTE du modèle et chaque correction sont tracées (journal) pour le débogage.
+#
+# Conséquence : le déroulé reste celui du cerveau fake (donc le MÊME résultat final), mais on
+# voit dans le journal ce que le modèle propose réellement à chaque étape et où il faut le
+# corriger. C'est précisément l'objet pédagogique : observer un petit modèle piloter, et le
+# fiabiliser.
+#
+# (Alternative envisagée : l'API tool-calling native d'Ollama. Elle fiabilise le FORMAT
+#  des appels mais pas la LOGIQUE — répétitions, aiguillage, arrêt — qui sont ici le vrai
+#  problème ; et gemma3n n'expose pas d'outils via son gabarit Ollama. On garde donc le
+#  protocole JSON maison, plus lisible pour le tutoriel.)
+
 
 # --- Règles, par agent, injectées dans le prompt système. -----------------------------
 _REGLES = {
@@ -250,38 +278,18 @@ _EXEMPLES = {
 
 
 class CerveauOllama:
-    """Demande au modèle local (Gemma E4B) de choisir l'action, au format JSON.
+    """Pilote les agents avec Gemma E4B (Ollama), encadré par une référence déterministe.
 
-    Fiabilisation pour petit modèle :
-    - on liste explicitement les actions possibles avec leurs **arguments attendus** (catalogue) ;
-    - on impose un format JSON strict + un exemple ;
-    - température 0 (déterministe) et `format=json` côté Ollama ;
-    - extraction JSON robuste (tolère du texte autour) et **une relance** en cas d'échec.
-
-    Le mode `fake` reste la référence ; ce cerveau est le point d'entrée d'un vrai LLM.
+    Le modèle choisit la prochaine action ; `CerveauFake` valide et, en cas de dérapage,
+    corrige/force. Voir l'explication détaillée en tête de section.
     """
-
-    EXEMPLE = (
-        '{"action": "outil", "nom": "interroger_stock", "args": {}}\n'
-        'Autre exemple : {"action": "deleguer", "nom": "appeler_fournisseur", '
-        '"args": {"piece": "roue"}}\n'
-        'Pour finir : {"action": "terminer", "resultat": {"statut": "livré"}}'
-    )
 
     def __init__(self, config):
         import httpx  # importé ici pour ne pas l'exiger en mode fake
         self.config = config
         self.client = httpx.AsyncClient(timeout=120.0)
-
-    def _catalogue_texte(self, agent) -> str:
-        """Liste les actions disponibles de l'agent, avec leur description/arguments."""
-        lignes = []
-        for nom in agent.noms_outils():
-            lignes.append(f'- action "outil", nom "{nom}" : {agent.catalogue.get(nom, "")}')
-        for nom in agent.noms_delegations():
-            lignes.append(f'- action "deleguer", nom "{nom}" : {agent.catalogue.get(nom, "")}')
-        lignes.append('- action "terminer" : quand la tâche est finie ; mettre le bilan dans "resultat".')
-        return "\n".join(lignes)
+        self.oracle = CerveauFake()      # référence : valide et corrige les choix du modèle
+        self.max_relances = 2            # relances guidées avant de forcer l'action de référence
 
     # --- prompt système, taillé pour l'agent courant -------------------------
     def _cle_agent(self, agent) -> str:
@@ -394,36 +402,42 @@ class CerveauOllama:
             "fournir_pieces_fait": _fait(historique, "fournir_pieces"),
         }
 
+    # --- boucle de décision : proposer (LLM) → valider/corriger (référence) ---
     async def decider(self, agent, objectif, historique, etat) -> Action:
-        systeme = (
-            f"Tu es l'agent « {agent.nom} ». {agent.role}\n\n"
-            "Actions possibles (n'en invente aucune autre) :\n"
-            f"{self._catalogue_texte(agent)}\n\n"
-            "Réponds STRICTEMENT par UN objet JSON, sans texte autour, de la forme :\n"
-            '{"action": "outil"|"deleguer"|"terminer", "nom": "...", "args": {...}, "resultat": ...}\n'
-            f"Exemples :\n{self.EXEMPLE}"
-        )
-        contexte = {
-            "objectif": objectif,
-            "historique": historique,
-            "stock": etat.interroger_stock(),
-            "suivi": etat.suivi,
-        }
+        # Action de référence (déterministe) : sert à valider, à corriger, et à fournir les args.
+        action_ref = await self.oracle.decider(agent, objectif, historique, etat)
+        profondeur = getattr(agent, "profondeur", 0)
+
         messages = [
-            {"role": "system", "content": systeme},
-            {"role": "user", "content": json.dumps(contexte, ensure_ascii=False)},
+            {"role": "system", "content": self._prompt_systeme(agent)},
+            {"role": "user", "content":
+                "Situation actuelle :\n"
+                + json.dumps(self._contexte_digere(agent, objectif, historique, etat),
+                             ensure_ascii=False, indent=2)
+                + "\n\nQuelle est la prochaine action ?"},
         ]
 
-        # Une tentative + une relance si le JSON est inexploitable.
-        derniere_erreur = None
-        for _ in range(2):
-            contenu = await self._appeler(messages)
-            donnees = _extraire_json(contenu)
-            if donnees is not None:
-                return _vers_action(donnees)
-            derniere_erreur = contenu
-            messages.append({"role": "user", "content": "Réponse invalide. Renvoie UNIQUEMENT le JSON demandé."})
-        raise ValueError(f"Réponse du modèle inexploitable : {derniere_erreur!r}")
+        noms_valides = agent.noms_outils() + agent.noms_delegations()
+        raison = "réponse illisible"
+        for tentative in range(1 + self.max_relances):
+            brut = await self._appeler(messages)
+            # Trace de la sortie BRUTE du modèle (débogage).
+            agent.trace.log(profondeur, agent.nom, "cerveau", "",
+                            {"tentative": tentative + 1, "brut": brut})
+            donnees = _extraire_json(brut)
+            if donnees is None:
+                raison = "JSON illisible"
+            elif _accord(donnees, action_ref, noms_valides):
+                return action_ref  # le modèle a choisi la bonne action ; args fournis par la référence
+            else:
+                raison = (f"proposé action={donnees.get('action')!r} nom={donnees.get('nom')!r}, "
+                          f"attendu action={action_ref.type!r} nom={action_ref.nom!r}")
+            messages.append({"role": "user", "content": _indice_correctif(agent, historique)})
+
+        # Garde-fou : le modèle a dérapé malgré les relances → on force l'action de référence.
+        agent.trace.log(profondeur, agent.nom, "garde-fou", action_ref.nom or action_ref.type,
+                        {"raison": raison})
+        return action_ref
 
     async def _appeler(self, messages) -> str:
         reponse = await self.client.post(
@@ -457,13 +471,34 @@ def _extraire_json(texte: str):
     return None
 
 
-def _vers_action(donnees: dict) -> Action:
-    action = donnees.get("action")
-    if action == "terminer":
-        return Action("terminer", resultat=donnees.get("resultat"))
-    if action == "deleguer":
-        return Action("deleguer", donnees.get("nom", ""), donnees.get("args", {}) or {})
-    return Action("outil", donnees.get("nom", ""), donnees.get("args", {}) or {})
+def _accord(donnees: dict, action_ref: Action, noms_valides: list[str]) -> bool:
+    """Le choix du modèle correspond-il à l'action de référence ?
+
+    On ne compare que l'action visée (les arguments sont fournis par la référence). On
+    tolère une étourderie fréquente du petit modèle : mettre le nom de l'outil dans le
+    champ « action » (ex. {"action": "suivi_commande", "nom": "suivi_commande"}). On
+    récupère donc son intention en cherchant un nom d'action valide dans les deux champs.
+    Pour « terminer », il faut que le modèle dise « terminer » sans viser d'outil.
+    """
+    action = str(donnees.get("action") or "").strip()
+    nom = str(donnees.get("nom") or "").strip()
+    intention = nom if nom in noms_valides else (action if action in noms_valides else None)
+    if action_ref.type == "terminer":
+        return intention is None and action.lower() == "terminer"
+    return intention == action_ref.nom
+
+
+def _indice_correctif(agent, historique: list[dict]) -> str:
+    """Message de relance : rappelle l'état sans révéler la réponse attendue."""
+    faites = [h["nom"] for h in historique] or ["aucune"]
+    noms = agent.noms_outils() + agent.noms_delegations()
+    return (
+        "Ta réponse ne convient pas. "
+        f"Étapes déjà faites : {faites}. "
+        f"Actions valides : {noms}. "
+        "Choisis la PROCHAINE action utile non encore faite (ou termine si tout est fait). "
+        'Réponds uniquement par le JSON {"action": ..., "nom": ...}.'
+    )
 
 
 def construire_cerveau(config):
