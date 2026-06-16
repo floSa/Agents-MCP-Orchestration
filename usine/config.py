@@ -1,5 +1,9 @@
 """Configuration et données de référence.
 
+> **EXEMPLE MÉTIER** — recettes et analyse de commande propres à l'usine
+> (la lecture du `.env` / `Config`, elle, se réutilise telle quelle).
+
+
 - Les **recettes** (nomenclatures) : combien de pièces par type de machine.
 - La **configuration** lue depuis l'environnement (.env) : choix du cerveau (fake/ollama),
   URL/modèle Ollama, stock initial, graine aléatoire.

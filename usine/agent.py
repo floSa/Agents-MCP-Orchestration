@@ -1,5 +1,7 @@
 """La classe Agent et sa boucle « ReAct ».
 
+> **MOTEUR GÉNÉRIQUE** — réutilisable tel quel, indépendant du domaine « usine ».
+
 Un **agent** = un cerveau (LLM ou fake) + une boucle + une boîte à outils :
 - `clients_par_outil` : pour chaque nom d'outil, le client FastMCP du MCP qui l'expose.
 - `delegations`       : pour chaque nom de délégation, une coroutine qui lance un sous-agent.

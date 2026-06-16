@@ -1,5 +1,9 @@
 """Les serveurs MCP (FastMCP) — un par agent.
 
+> **EXEMPLE MÉTIER** — ces outils sont ceux de l'usine ; on les remplace par les outils
+> de VOTRE domaine. Le *patron* (un MCP par agent, capturant l'état) reste, lui, générique.
+
+
 Chaque agent a SON MCP, c'est-à-dire SA boîte à outils :
 
 - `pilotage`    → outils du Chef d'usine
