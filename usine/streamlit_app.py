@@ -23,13 +23,23 @@ import streamlit as st  # noqa: E402
 from usine.config import RECETTES, Config  # noqa: E402
 from usine.orchestration import lancer_commande  # noqa: E402
 
-# Couleur (badge) par agent, pour repérer qui fait quoi.
+# Couleur (badge) par agent. On utilise un petit carré HTML coloré plutôt qu'un emoji
+# « carré de couleur » (🟦…), car ces emojis ne sont pas rendus par toutes les polices.
 COULEUR_AGENT = {
-    "Chef d'usine": "🟦",
-    "Assembleur": "🟩",
-    "Fabricant": "🟧",
-    "Fournisseur": "🟪",
+    "Chef d'usine": "#4285f4",  # bleu
+    "Assembleur": "#34a853",    # vert
+    "Fabricant": "#fbbc04",     # orange
+    "Fournisseur": "#a142f4",   # violet
 }
+COULEUR_RUPTURE = "#ea4335"     # rouge
+
+
+def pastille(couleur: str) -> str:
+    """Petit carré coloré en HTML (rendu fiable, indépendant des emojis)."""
+    return (
+        f'<span style="display:inline-block;width:11px;height:11px;border-radius:3px;'
+        f'background:{couleur};vertical-align:middle;margin-right:6px;"></span>'
+    )
 # Libellé lisible par type d'événement.
 LIBELLE_TYPE = {
     "objectif": "🎯 objectif",
@@ -59,6 +69,11 @@ with st.sidebar:
         pieces = ", ".join(f"{n} {p}" for p, n in recette.items())
         st.write(f"- **{vehicule}** : {pieces}")
 
+    st.header("Légende")
+    for agent, couleur in COULEUR_AGENT.items():
+        st.markdown(f"{pastille(couleur)} {agent}", unsafe_allow_html=True)
+    st.markdown(f"{pastille(COULEUR_RUPTURE)} rupture (fournisseur)", unsafe_allow_html=True)
+
 # --- Zone principale : commande + lancement ------------------------------------------
 commande = st.text_input("Commande à produire", value="2 motos + 2 voitures")
 
@@ -81,16 +96,20 @@ if st.button("🚀 Lancer la production", type="primary"):
     lignes = []
     for evenement in journal:
         marge = "&nbsp;" * (evenement["profondeur"] * 6)
-        badge = COULEUR_AGENT.get(evenement["agent"], "⬜")
+        couleur = COULEUR_AGENT.get(evenement["agent"], "#9aa0a6")
         libelle = LIBELLE_TYPE.get(evenement["type"], evenement["type"])
         nom = f" `{evenement['nom']}`" if evenement["nom"] else ""
         detail = evenement["detail"]
-        # Met en évidence les ruptures de stock du fournisseur.
+        # Met en évidence les ruptures de stock du fournisseur (carré rouge).
+        alerte = ""
         if isinstance(detail, dict) and isinstance(detail.get("resultat"), dict) \
                 and detail["resultat"].get("statut") == "rupture":
-            badge = "⚠️"
+            couleur = COULEUR_RUPTURE
+            alerte = "⚠️ "
         texte_detail = "" if detail is None else f" — {str(detail)[:160]}"
-        lignes.append(f"{marge}{badge} **{evenement['agent']}** · {libelle}{nom}{texte_detail}")
+        lignes.append(
+            f"{marge}{pastille(couleur)}{alerte}**{evenement['agent']}** · {libelle}{nom}{texte_detail}"
+        )
     st.markdown("<br>".join(lignes), unsafe_allow_html=True)
 
     # Détails bruts repliés.
