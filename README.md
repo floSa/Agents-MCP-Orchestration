@@ -148,3 +148,17 @@ docker compose exec ollama ollama pull gemma3n:e4b
 
 Les outils sont des stubs (ils renvoient un jeton), sauf `fournir_pieces` qui tire un nombre
 aleatoire entre 1 et 5 — c'est ce qui cree la boucle du Fabricant.
+
+---
+
+## Licences & composants
+
+| Composant | Rôle | Licence |
+|---|---|---|
+| FastMCP | Serveurs & client MCP | Apache-2.0 |
+| Streamlit | Interface de suivi | Apache-2.0 |
+| httpx | Appels HTTP vers Ollama | BSD-3-Clause |
+| python-dotenv | Lecture du `.env` | BSD-3-Clause |
+| Ollama (mode `ollama`) | Serveur LLM local (Gemma) | MIT `<à confirmer selon le modèle>` |
+| Ruff / pytest | Lint / tests | MIT |
+| **Ce projet** | Code applicatif | MIT (voir [LICENSE](LICENSE)) — Copyright (c) 2026 floSa |
