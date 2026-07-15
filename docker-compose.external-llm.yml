@@ -1,0 +1,35 @@
+# Override : branche l'app sur le service Ollama CENTRAL (repo llm-service)
+# au lieu de lancer un Ollama local.
+#
+#   Autonome (Ollama local embarqué) :
+#     docker compose up
+#   Branché sur le service central (llm-service doit tourner) :
+#     docker compose -f docker-compose.yml -f docker-compose.external-llm.yml up
+#
+# Prérequis : `make up` dans llm-service (démarre l'Ollama central + crée le
+# réseau partagé « llm-net »).
+services:
+  # 1. Neutralise l'Ollama local : 0 réplica = conteneur non démarré.
+  ollama:
+    deploy:
+      replicas: 0
+
+  # 2. L'app pointe vers le service central et rejoint le réseau partagé.
+  app:
+    environment:
+      # Forcé en dur : en mode branché on veut le VRAI cerveau LLM, quelle que
+      # soit la valeur de LLM_PROVIDER dans le .env du projet (souvent « fake »).
+      LLM_PROVIDER: ollama
+      # Service central, résolu par DNS sur llm-net (pas de collision avec
+      # l'ollama local, éteint et sur un autre réseau).
+      OLLAMA_URL: http://ollama-central:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+    # Coupe la dépendance héritée vers l'ollama local (sinon compose le relance).
+    depends_on: !reset []
+    networks:
+      - default      # conserve le réseau projet d'origine
+      - llm-net      # ajoute le réseau partagé
+
+networks:
+  llm-net:
+    external: true   # créé par le service central, pas par ce projet
