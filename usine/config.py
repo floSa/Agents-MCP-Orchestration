@@ -41,7 +41,7 @@ class Config:
 
     provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "fake"))
     ollama_url: str = field(default_factory=lambda: os.getenv("OLLAMA_URL", "http://localhost:11434"))
-    ollama_model: str = field(default_factory=lambda: os.getenv("OLLAMA_MODEL", "gemma3n:e4b"))
+    ollama_model: str = field(default_factory=lambda: os.getenv("OLLAMA_MODEL", "gemma4:e4b"))
     stock_initial: dict[str, int] = field(
         default_factory=lambda: _parser_stock(os.getenv("STOCK_INITIAL", "roue:3,batterie:2,chassis:1"))
     )

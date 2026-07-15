@@ -212,8 +212,7 @@ class CerveauFake:
 #
 # (Alternative envisagée : l'API tool-calling native d'Ollama. Elle fiabilise le FORMAT
 #  des appels mais pas la LOGIQUE — répétitions, aiguillage, arrêt — qui sont ici le vrai
-#  problème ; et gemma3n n'expose pas d'outils via son gabarit Ollama. On garde donc le
-#  protocole JSON maison, plus lisible pour le tutoriel.)
+#  problème. On garde donc le protocole JSON maison, plus lisible pour le tutoriel.)
 
 
 # --- Règles, par agent, injectées dans le prompt système. -----------------------------

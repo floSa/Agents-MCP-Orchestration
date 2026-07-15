@@ -70,7 +70,7 @@ explorer l'architecture. Pour brancher Gemma E4B via Ollama :
 
 ```bash
 cp .env.example .env          # puis mettre LLM_PROVIDER=ollama
-ollama pull gemma3n:e4b       # recuperer le modele
+ollama pull gemma4:e4b       # recuperer le modele
 uv run python -m usine.main "2 motos + 2 voitures"
 ```
 
@@ -88,7 +88,7 @@ docker compose up --build
 La premiere fois, telecharger le modele dans le conteneur Ollama :
 
 ```bash
-docker compose exec ollama ollama pull gemma3n:e4b
+docker compose exec ollama ollama pull gemma4:e4b
 ```
 
 ---

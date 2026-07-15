@@ -23,7 +23,7 @@ services:
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-fake}
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3n:e4b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
       STOCK_INITIAL: ${STOCK_INITIAL:-roue:3,batterie:2,chassis:1}
     depends_on:
       - ollama
