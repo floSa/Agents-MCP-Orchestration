@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from typing import Callable, Optional
 
 # Types d'événements possibles (pour information / filtrage côté UI) :
 #   "objectif"    : un agent démarre une tâche
@@ -20,12 +21,18 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Trace:
-    """Collecteur d'événements, en mémoire (et exportable en JSONL)."""
+    """Collecteur d'événements, en mémoire (et exportable en JSONL).
+
+    `on_event`, s'il est fourni, est appelé avec CHAQUE événement au moment où il est
+    journalisé — c'est ce qui permet un affichage EN DIRECT (ex. Streamlit) au lieu
+    d'attendre la fin de la production. Il reste optionnel : sans lui, rien ne change.
+    """
 
     journal: list[dict] = field(default_factory=list)
+    on_event: Optional[Callable[[dict], None]] = None
 
     def log(self, profondeur: int, agent: str, type_: str, nom: str = "", detail=None) -> dict:
-        """Ajoute un événement au journal et le renvoie."""
+        """Ajoute un événement au journal, notifie l'observateur éventuel, et le renvoie."""
         evenement = {
             "ordre": len(self.journal) + 1,
             "profondeur": profondeur,
@@ -35,6 +42,8 @@ class Trace:
             "detail": detail,
         }
         self.journal.append(evenement)
+        if self.on_event is not None:
+            self.on_event(evenement)
         return evenement
 
     def to_jsonl(self, chemin: str) -> None:
