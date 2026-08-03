@@ -5,16 +5,18 @@ description = "Tutoriel d'orchestration multi-agents + MCP : une usine qui fabri
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp>=2.0.0",      # serveurs MCP (et client en mémoire)
-    "streamlit>=1.36",     # interface de suivi
-    "httpx>=0.27",         # appels HTTP vers Ollama
-    "python-dotenv>=1.0",  # lecture du .env
+    # Le code utilise le décorateur nu `@mcp.tool` et lit `CallToolResult.data` :
+    # c'est l'API 3.x, pas celle de la 2.0 que le plancher laissait passer.
+    "fastmcp>=3.4,<4",     # serveurs MCP (et client en mémoire)
+    "streamlit>=1.60",     # interface de suivi
+    "httpx>=0.28",         # appels HTTP vers Ollama
+    "python-dotenv>=1.2",  # lecture du .env
 ]
 
 [dependency-groups]
 # Dépendances de confort pour le développement (facultatif)
 dev = [
-    "ruff>=0.5",
+    "ruff>=0.16",
 ]
 
 [build-system]
