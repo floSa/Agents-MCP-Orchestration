@@ -2,7 +2,7 @@ name: tests
 
 on:
   push:
-    branches: [main, cerveaux-less]
+    branches: [main, llmless]
   pull_request:
 
 jobs:
