@@ -1,8 +1,8 @@
 """Configuration et données de référence.
 
 - Les **recettes** (nomenclatures) : combien de pièces par type de machine.
-- La **configuration** lue depuis l'environnement (.env) : choix du cerveau (fake/ollama),
-  URL/modèle Ollama, stock initial, graine aléatoire.
+- La **configuration** lue depuis l'environnement (.env) : choix du cerveau (fake/llm),
+  accès au service LLM central (API compatible OpenAI), stock initial, graine aléatoire.
 - Un petit analyseur de commande texte → liste de machines à produire.
 """
 from __future__ import annotations
@@ -39,13 +39,24 @@ _SINGULIER = {
 class Config:
     """Configuration de l'exécution, alimentée par l'environnement."""
 
-    provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "fake"))
-    ollama_url: str = field(default_factory=lambda: os.getenv("OLLAMA_URL", "http://localhost:11434"))
-    ollama_model: str = field(default_factory=lambda: os.getenv("OLLAMA_MODEL", "gemma4:e4b"))
+    # "fake" (déterministe, sans LLM) ou "llm" (service LLM central). "ollama" = ancien alias de "llm".
+    provider: str = field(default_factory=lambda: _parser_provider(os.getenv("LLM_PROVIDER", "fake")))
+    # API compatible OpenAI du service central : depuis l'hôte http://127.0.0.1:8080/v1,
+    # depuis un conteneur du réseau llm-net http://llm-central:8080/v1.
+    llm_base_url: str = field(default_factory=lambda: os.getenv("LLM_BASE_URL", "http://127.0.0.1:8080/v1"))
+    llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "chat"))
+    llm_api_key: str = field(default_factory=lambda: os.getenv("LLM_API_KEY", ""))
+    # Réflexion (Qwen3.5) : coupée par défaut, le cerveau ne fait que choisir une action.
+    llm_thinking: bool = field(default_factory=lambda: os.getenv("LLM_THINKING", "").strip().lower() in {"1", "true", "oui", "yes"})
     stock_initial: dict[str, int] = field(
         default_factory=lambda: _parser_stock(os.getenv("STOCK_INITIAL", "roue:3,batterie:2,chassis:1"))
     )
     seed: int | None = field(default_factory=lambda: _parser_seed(os.getenv("SEED", "")))
+
+
+def _parser_provider(texte: str) -> str:
+    texte = (texte or "fake").strip().lower()
+    return "llm" if texte == "ollama" else texte
 
 
 def _parser_stock(texte: str) -> dict[str, int]:
