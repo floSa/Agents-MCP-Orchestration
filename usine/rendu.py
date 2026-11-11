@@ -47,7 +47,7 @@ LIBELLE_TYPE = {
     "delegation": "délègue à",
     "retour": "reçoit de",
     "fin": "termine",
-    "cerveau": "modèle (brut)",   # sortie brute du LLM (mode ollama)
+    "cerveau": "modèle (brut)",   # sortie brute du LLM (mode llm)
     "garde-fou": "correction",    # le garde-fou a forcé l'action de référence
 }
 

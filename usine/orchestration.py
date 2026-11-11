@@ -27,7 +27,7 @@ from usine.mcp_servers import (
 )
 from usine.trace import Trace
 
-# Rôles (utilisés notamment par le cerveau Ollama pour cadrer chaque agent).
+# Rôles (utilisés notamment par le cerveau LLM pour cadrer chaque agent).
 ROLE_CHEF = (
     "Tu orchestres la production. Pour chaque machine de la commande, fais assembler par "
     "l'Assembleur ; s'il manque des pièces, fais-les produire par le Fabricant, puis relance "

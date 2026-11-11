@@ -6,8 +6,8 @@ Deux implémentations interchangeables :
   C'est la référence : elle permet de faire tourner et de comprendre tout l'arbre d'agents
   sans dépendance. C'est ici qu'est encodée la logique de chaque agent.
 
-- `CerveauOllama` : appelle **Gemma E4B** via Ollama et lui demande de choisir l'action
-  (au format JSON). Expérimental — la qualité dépend du modèle et du prompt.
+- `CerveauLLM` : appelle le **service LLM central** (API compatible OpenAI, modèle « chat »)
+  et lui demande de choisir l'action (au format JSON). Expérimental — la qualité dépend du modèle et du prompt.
 
 Interface commune : `await cerveau.decider(agent, objectif, historique, etat) -> Action`.
 
@@ -185,7 +185,7 @@ class CerveauFake:
 
 
 # ======================================================================================
-# Cerveau Ollama (Gemma E4B)
+# Cerveau LLM (service LLM central, modèle « chat »)
 # ======================================================================================
 #
 # Pourquoi un garde-fou déterministe ?
@@ -210,7 +210,7 @@ class CerveauFake:
 # corriger. C'est précisément l'objet pédagogique : observer un petit modèle piloter, et le
 # fiabiliser.
 #
-# (Alternative envisagée : l'API tool-calling native d'Ollama. Elle fiabilise le FORMAT
+# (Alternative envisagée : l'API tool-calling native de l'API OpenAI. Elle fiabilise le FORMAT
 #  des appels mais pas la LOGIQUE — répétitions, aiguillage, arrêt — qui sont ici le vrai
 #  problème. On garde donc le protocole JSON maison, plus lisible pour le tutoriel.)
 
@@ -276,8 +276,8 @@ _EXEMPLES = {
 }
 
 
-class CerveauOllama:
-    """Pilote les agents avec Gemma E4B (Ollama), encadré par une référence déterministe.
+class CerveauLLM:
+    """Pilote les agents avec le modèle « chat » du service LLM central, encadré par une référence déterministe.
 
     Le modèle choisit la prochaine action ; `CerveauFake` valide et, en cas de dérapage,
     corrige/force. Voir l'explication détaillée en tête de section.
@@ -440,17 +440,20 @@ class CerveauOllama:
 
     async def _appeler(self, messages) -> str:
         reponse = await self.client.post(
-            f"{self.config.ollama_url}/api/chat",
+            f"{self.config.llm_base_url.rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {self.config.llm_api_key}"},
             json={
-                "model": self.config.ollama_model,
+                "model": self.config.llm_model,
                 "messages": messages,
-                "stream": False,
-                "format": "json",
-                "options": {"temperature": 0},
+                "temperature": 0,
+                "max_tokens": 512,
+                "response_format": {"type": "json_object"},
+                # Qwen3.5 réfléchit par défaut : inutile (et lent) pour choisir une action.
+                "chat_template_kwargs": {"enable_thinking": self.config.llm_thinking},
             },
         )
         reponse.raise_for_status()
-        return reponse.json()["message"]["content"]
+        return reponse.json()["choices"][0]["message"].get("content") or ""
 
 
 def _extraire_json(texte: str):
@@ -502,6 +505,6 @@ def _indice_correctif(agent, historique: list[dict]) -> str:
 
 def construire_cerveau(config):
     """Fabrique le cerveau selon la configuration (`LLM_PROVIDER`)."""
-    if config.provider == "ollama":
-        return CerveauOllama(config)
+    if config.provider == "llm":
+        return CerveauLLM(config)
     return CerveauFake()

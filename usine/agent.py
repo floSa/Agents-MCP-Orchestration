@@ -30,7 +30,7 @@ class Agent:
         self.catalogue: dict[str, str] = catalogue or {}
         self.memoire: dict = {}                      # mémoire persistante (utilisée par le Chef)
 
-    # Outils visibles par le cerveau (utile pour le mode Ollama).
+    # Outils visibles par le cerveau (utile pour le mode llm).
     def noms_outils(self) -> list[str]:
         return list(self.clients_par_outil)
 

@@ -202,8 +202,8 @@ with st.sidebar:
 
     st.header("Configuration")
     st.write(f"**Cerveau** : `{config.provider}`")
-    if config.provider == "ollama":
-        st.write(f"**Modèle** : `{config.ollama_model}`")
+    if config.provider == "llm":
+        st.write(f"**Modèle** : `{config.llm_model}` via `{config.llm_base_url}`")
     st.write(f"**Stock initial** : `{config.stock_initial}`")
 
     st.header("Recettes")
