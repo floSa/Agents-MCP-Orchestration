@@ -37,7 +37,7 @@ MCP-Orchestration/
 │   ├── config.py              <- recettes + configuration LLM
 │   ├── etat.py                <- etat partage : stock + suivi_commande
 │   ├── trace.py               <- journal d'evenements (pour Streamlit)
-│   ├── cerveau.py             <- le "cerveau" : mode fake (deterministe) ou ollama (Gemma)
+│   ├── cerveau.py             <- le "cerveau" : mode fake (deterministe) ou llm (service LLM central)
 │   ├── agent.py               <- classe Agent + boucle ReAct generique
 │   ├── mcp_servers.py         <- les MCP (FastMCP) : atelier, fabrication, fournisseur
 │   ├── orchestration.py       <- assemble les agents et lance une commande
@@ -45,7 +45,7 @@ MCP-Orchestration/
 │   └── streamlit_app.py       <- interface de suivi
 ├── pyproject.toml             <- dependances (uv)
 ├── Dockerfile
-├── docker-compose.yml         <- Ollama + l'app Streamlit
+├── docker-compose.yml         <- l'app Streamlit (branchee sur le service LLM central)
 └── .env.example               <- variables de configuration
 ```
 
@@ -66,13 +66,18 @@ uv run streamlit run usine/streamlit_app.py
 ```
 
 Par defaut, `LLM_PROVIDER=fake` : tout tourne sans modele, de facon deterministe — pratique pour
-explorer l'architecture. Pour brancher Gemma E4B via Ollama :
+explorer l'architecture. Pour brancher le cerveau sur le service LLM central
+(repo `LLM-Service`, API compatible OpenAI, modele `chat`) :
 
 ```bash
-cp .env.example .env          # puis mettre LLM_PROVIDER=ollama
-ollama pull gemma4:e4b       # recuperer le modele
+cp .env.example .env     # puis LLM_PROVIDER=llm et LLM_API_KEY=<LITELLM_MASTER_KEY de LLM-Service>
 uv run python -m usine.main "2 motos + 2 voitures"
 ```
+
+Adresse depuis l'hote : `http://127.0.0.1:8080/v1` (`LLM_BASE_URL`). Le service doit etre demarre
+(`curl -H "Authorization: Bearer <cle>" http://127.0.0.1:8080/v1/models` doit lister `chat`).
+La cle reste dans le `.env` local, jamais dans git. La reflexion du modele est coupee par requete
+(`LLM_THINKING=1` pour l'activer). Contexte : 16 384 jetons par requete.
 
 ---
 
@@ -82,14 +87,10 @@ uv run python -m usine.main "2 motos + 2 voitures"
 docker compose up --build
 ```
 
-- `ollama` : sert le modele local.
-- `app` : l'interface Streamlit, exposee sur http://localhost:8501
-
-La premiere fois, telecharger le modele dans le conteneur Ollama :
-
-```bash
-docker compose exec ollama ollama pull gemma4:e4b
-```
+- `app` : l'interface Streamlit, exposee sur http://localhost:8501. Elle rejoint le reseau externe
+  `llm-net` (cree par LLM-Service) et joint le service central sur `http://llm-central:8080/v1`.
+- Prerequis : LLM-Service demarre ; `LLM_API_KEY` renseignee dans le `.env`. Rien a telecharger.
+- L'ancien service `ollama` embarque a ete retire du compose (reste dans l'historique git).
 
 ---
 
@@ -98,7 +99,7 @@ docker compose exec ollama ollama pull gemma4:e4b
 | `LLM_PROVIDER` | Effet |
 |---|---|
 | `fake` (defaut) | Cerveau deterministe qui applique les regles. Aucune dependance, reproductible — pratique pour comprendre et tester l'arbre d'agents. |
-| `ollama` | Les agents decident via Gemma E4B (Ollama). |
+| `llm` | Les agents decident via le modele `chat` du service LLM central (`ollama` accepte comme ancien alias). |
 
 Les outils sont des stubs (ils renvoient un jeton), sauf `fournir_pieces` qui tire un nombre
 aleatoire entre 1 et 5 — c'est ce qui cree la boucle du Fabricant.

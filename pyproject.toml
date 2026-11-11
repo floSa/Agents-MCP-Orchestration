@@ -9,7 +9,7 @@ dependencies = [
     # c'est l'API 3.x, pas celle de la 2.0 que le plancher laissait passer.
     "fastmcp>=3.4,<4",     # serveurs MCP (et client en mémoire)
     "streamlit>=1.60",     # interface de suivi
-    "httpx>=0.28",         # appels HTTP vers Ollama
+    "httpx>=0.28",         # appels HTTP vers le service LLM central
     "python-dotenv>=1.2",  # lecture du .env
 ]
 

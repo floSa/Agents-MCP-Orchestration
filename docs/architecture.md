@@ -135,13 +135,13 @@ Pour chaque machine de la commande :
 
 ## 6. Technique
 
-- LLM : modele local Gemma E4B via Ollama (ou vLLM). Un mode `fake` (cerveau deterministe) permet
+- LLM : modele `chat` du service LLM central (API compatible OpenAI, `/v1/chat/completions`). Un mode `fake` (cerveau deterministe) permet
   de tout faire tourner sans LLM, pour tester l'arbre d'agents.
 - MCP : FastMCP — un serveur par agent, appele via un client en memoire (pas de sous-process).
 - Outils : des stubs (renvoient un jeton), sauf fournir_pieces qui tire un aleatoire 1 a 5.
 - Suivi : chaque action (agent, outil, args, resultat, profondeur) est journalisee -> affichee
   dans Streamlit.
-- Docker : ollama + l'app Streamlit via docker compose.
+- Docker : l'app Streamlit via docker compose, reseau externe `llm-net` vers le service central.
 
 Voir [`schema_architecture.svg`](schema_architecture.svg) pour la version dessinee, et le
 [README](../README.md) pour le lancement.
