@@ -1,32 +1,25 @@
+# Application : interface Streamlit + agents, branchée sur le service LLM central
+# (repo LLM-Service, API compatible OpenAI). Prérequis : le service central tourne
+# (conteneur « llm-central » sur le réseau externe « llm-net », créé par LLM-Service).
+#
+# L'ancien service `ollama` embarqué a été retiré (voir l'historique git). Son volume
+# `ollama_data`, s'il existe sur la machine, n'est pas supprimé.
 services:
-  # Modèle local Gemma E4B
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    # Décommenter pour utiliser un GPU NVIDIA :
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
-
-  # Application : interface Streamlit + agents
   app:
     build: .
     ports:
       - "8501:8501"
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-fake}
-      OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+      LLM_BASE_URL: http://llm-central:8080/v1
+      LLM_MODEL: ${LLM_MODEL:-chat}
+      LLM_API_KEY: ${LLM_API_KEY:-}          # lu dans le .env (non suivi par git)
+      LLM_THINKING: ${LLM_THINKING:-}
       STOCK_INITIAL: ${STOCK_INITIAL:-roue:3,batterie:2,chassis:1}
-    depends_on:
-      - ollama
+    networks:
+      - default
+      - llm-net
 
-volumes:
-  ollama_data:
+networks:
+  llm-net:
+    external: true   # créé par LLM-Service, pas par ce projet

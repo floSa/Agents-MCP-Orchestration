@@ -1,5 +1,5 @@
 # Image de l'application (interface Streamlit + agents).
-# Ollama tourne dans un conteneur séparé (voir docker-compose.yml).
+# Le LLM est fourni par le service central LLM-Service (voir docker-compose.yml).
 FROM python:3.11-slim
 
 # uv : gestionnaire d'environnement/dépendances
