@@ -70,9 +70,22 @@ explorer l'architecture. Pour brancher le cerveau sur le service LLM central
 (repo `LLM-Service`, API compatible OpenAI, modele `chat`) :
 
 ```bash
-cp .env.example .env     # puis LLM_PROVIDER=llm et LLM_API_KEY=<LITELLM_MASTER_KEY de LLM-Service>
+cp .env.example .env     # puis LLM_PROVIDER=llm
+# Cle propre de l'application (jamais la cle maitresse de LLM-Service), ecrite dans le .env :
+~/mes_projets/Projet-IA/LLM-Service/scripts/cle.sh creer agents-mcp-orchestration \
+  --dans "$PWD/.env" --noms LLM_BASE_URL,LLM_API_KEY --hote
 uv run python -m usine.main "2 motos + 2 voitures"
 ```
+
+`LLM_PROVIDER` doit valoir `llm` pour appeler le vrai modele (avec `fake`, la cle n'est pas
+utilisee). `--hote` ecrit l'adresse `http://127.0.0.1:8080/v1` ; en conteneur, le compose force
+`http://llm-central:8080/v1`. Procedure complete : `LLM-Service/docs/brancher-une-application.md`.
+Revocation : `scripts/cle.sh revoquer agents-mcp-orchestration` ; consommation :
+`scripts/cle.sh consommation` (depuis le depot LLM-Service).
+
+Essai reel du 14/11/2026, cle propre `agents-mcp-orchestration`, `LLM_PROVIDER=llm` :
+`uv run python -m usine.main "2 motos + 2 voitures"` -> statut `commande_livrée`, 4 machines
+livrees ; 119 requetes et 81 663 jetons comptes sur la cle.
 
 Adresse depuis l'hote : `http://127.0.0.1:8080/v1` (`LLM_BASE_URL`). Le service doit etre demarre
 (`curl -H "Authorization: Bearer <cle>" http://127.0.0.1:8080/v1/models` doit lister `chat`).
